@@ -7,6 +7,6 @@
 
 CMakeLists.txt
 platformio.ini
-sdkconfig.az-delivery-devkit-v4
+sdkconfig.*
 
 **.DS_Store 
