@@ -3,10 +3,5 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-.vscode/extensions.json
-
-CMakeLists.txt
-platformio.ini
-sdkconfig.az-delivery-devkit-v4
 
 **.DS_Store 
