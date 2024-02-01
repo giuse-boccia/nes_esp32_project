@@ -1,8 +1,10 @@
 /*
- * main.c
+ * vcp.c
  *
  * Lecture: Network Embedded Systems
  * Authors: Giuseppe Boccia, Julio Cesar Espinoza Andrea, Tim Schmid
+ *
+ * This file contains the code with the functions of the virtucal cord protocol
  */
 
 /* --------- external libs ---------- */
@@ -27,18 +29,3 @@
 #include "freertos/timers.h"
 #include "nvs_flash.h"
 /* --------- external libs ---------- */
-
-/* ---------- own includes ---------- */
-#include "sender-receiver.h"
-/* ---------- own includes ---------- */
-
-void app_main()
-{
-
-    // initiliaze the wifi-functionality of the esp32
-
-    // TODO
-
-    // initialize sender and receiver and the vcp protocol
-    init_sender_receiver();
-}

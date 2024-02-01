@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.py": "python",
+        "unistd.h": "c",
+        "stdlib.h": "c",
+        "esp_random.h": "c"
+    }
+}
