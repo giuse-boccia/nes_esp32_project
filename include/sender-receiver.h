@@ -14,8 +14,12 @@
 
 /* -------- variables and constants -------- */
 extern QueueHandle_t receiver_queue;
+extern QueueHandle_t sender_queue;
+extern QueueHandle_t sender_error_queue;
 /* -------- variables and constants -------- */
 
-static esp_err_t init_sender_receiver(void);
+esp_err_t init_sender_receiver(void);
+esp_err_t send_multicast(void);
+esp_err_t send_unicast(void);
 
 #endif
