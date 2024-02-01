@@ -3,6 +3,7 @@
         "*.py": "python",
         "unistd.h": "c",
         "stdlib.h": "c",
-        "esp_random.h": "c"
+        "esp_random.h": "c",
+        "sender-receiver.h": "c"
     }
 }

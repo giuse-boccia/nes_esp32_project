@@ -62,7 +62,7 @@ static void deinit_sender_receiver(void)
     // TODO
 }
 
-static esp_err_t init_sender_receiver(void)
+esp_err_t init_sender_receiver(void)
 {
     // TODO
     return ESP_OK;
