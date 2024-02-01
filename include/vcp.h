@@ -11,4 +11,6 @@
 #ifndef VCP_H
 #define VCP_H
 
+esp_err_t init_vcp(void);
+
 #endif

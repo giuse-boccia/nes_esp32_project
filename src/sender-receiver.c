@@ -33,11 +33,12 @@
 
 /* ------------- own includes -------------- */
 #include "sender-receiver.h"
-#include "vcp.h"
 /* ------------- own includes -------------- */
 
 /* -------- variables and constants -------- */
 QueueHandle_t receiver_queue;
+QueueHandle_t sender_queue;
+QueueHandle_t sender_error_queue;
 /* -------- variables and constants -------- */
 
 /* ---- definition of internal fucntions --- */
@@ -54,12 +55,36 @@ static void sender_callback(const uint8_t *mac_addr, esp_now_send_status_t statu
 
 static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *data, int len)
 {
+    // TODO decode the received data and write on the queue
+}
+
+static void encode_data(void)
+{
+    //
+}
+
+static void decode_data(void)
+{
     // TODO
 }
 
 static void deinit_sender_receiver(void)
 {
     // TODO
+}
+
+esp_err_t send_broadcast(void)
+{
+    // TODO --> Add appropriate data-structure to the parameter of the function
+    // TODO --> encode the data and send the message
+    return ESP_OK;
+}
+
+esp_err_t send_unicast(void)
+{
+    // TODO --> Add appropriate data-structure to the parameter of the function
+    // TODO --> encode the data and send the message
+    return ESP_OK;
 }
 
 esp_err_t init_sender_receiver(void)

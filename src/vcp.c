@@ -29,3 +29,46 @@
 #include "freertos/timers.h"
 #include "nvs_flash.h"
 /* --------- external libs ---------- */
+
+/* ------------- own includes -------------- */
+#include "sender-receiver.h"
+#include "vcp.h"
+/* ------------- own includes -------------- */
+
+/* -------- variables and constants -------- */
+
+/* -------- variables and constants -------- */
+
+/* ---- definition of internal fucntions --- */
+static void cord_maintenance(void);
+static void check_sending_error(void);
+static void greedy_routing(void);
+static void vcp_state_machine(void);
+/* ---- definition of internal fucntions --- */
+
+static void cord_maintenance(void)
+{
+    // TODO Manage sending periodic "hello messages" and react to the received ones
+    // TODO Update the peers list
+}
+
+static void check_sending_error(void)
+{
+    // TODO check the sender_error_queue and react of the target is not reachable
+}
+
+static void greedy_routing(void)
+{
+    // TODO If data is not for this node, decide where to send it
+}
+
+static void vcp_state_machine(void)
+{
+    // TODO react to incoming messages which are on the sender_queue
+}
+
+esp_err_t init_vcp(void)
+{
+    // TODO
+    return ESP_OK;
+}

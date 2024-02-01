@@ -30,15 +30,31 @@
 
 /* ---------- own includes ---------- */
 #include "sender-receiver.h"
+#include "config.h"
 /* ---------- own includes ---------- */
+
+/* ---- definition of internal fucntions --- */
+static void init_wifi(void);
+/* ---- definition of internal fucntions --- */
+
+static void init_wifi(void)
+{
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(ESPNOW_WIFI_MODE));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE));
+}
 
 void app_main()
 {
-
     // initiliaze the wifi-functionality of the esp32
-
-    // TODO
-
+    init_wifi();
     // initialize sender and receiver and the vcp protocol
     init_sender_receiver();
+    // initialize the vcp algorithm
+    init_vcp();
 }
