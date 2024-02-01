@@ -38,7 +38,6 @@ void app_main()
     // initiliaze the wifi-functionality of the esp32
 
     // TODO
-
     // initialize sender and receiver and the vcp protocol
     init_sender_receiver();
 }

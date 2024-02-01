@@ -40,30 +40,32 @@
 QueueHandle_t receiver_queue;
 /* -------- variables and constants -------- */
 
-/* ---- definition of internal fucntions --- */
-static void sender_callback(const uint8_t *mac_addr, esp_now_send_status_t status);
-static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *data, int len);
-static void deinit_sender_receiver(void);
-/* ---- definition of internal fucntions --- */
-
 /* -------------- functions --------------- */
-static void sender_callback(const uint8_t *mac_addr, esp_now_send_status_t status)
-{
+void sender_callback(const uint8_t *mac_addr, esp_now_send_status_t status) {
     // TODO
 }
 
-static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *data, int len)
-{
+void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
     // TODO
 }
 
-static void deinit_sender_receiver(void)
-{
+void deinit_sender_receiver(void) {
     // TODO
 }
 
-static esp_err_t init_sender_receiver(void)
-{
-    // TODO
+
+
+esp_err_t init_sender_receiver(void) {
+    /* WiFi should start before using ESPNOW */
+
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(ESPNOW_WIFI_MODE));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_channel(CONFIG_ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
+
     return ESP_OK;
 }
