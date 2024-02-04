@@ -4,6 +4,9 @@
         "unistd.h": "c",
         "stdlib.h": "c",
         "esp_random.h": "c",
-        "sender-receiver.h": "c"
+        "sender-receiver.h": "c",
+        "assert.h": "c",
+        "esp_event.h": "c",
+        "esp_netif.h": "c"
     }
 }

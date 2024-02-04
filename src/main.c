@@ -5,7 +5,7 @@
  * Authors: Giuseppe Boccia, Julio Cesar Espinoza Andrea, Tim Schmid
  */
 
-/* --------- external libs ---------- */
+/* --------------------------------------------------- external libs --------------------------------------------------- */
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
@@ -26,17 +26,14 @@
 #include "freertos/semphr.h"
 #include "freertos/timers.h"
 #include "nvs_flash.h"
-/* --------- external libs ---------- */
 
-/* ---------- own includes ---------- */
+/* -------------------------------------------------- own includes --------------------------------------------------- */
 #include "config.h"
 #include "sender-receiver.h"
 #include "vcp.h"
-/* ---------- own includes ---------- */
 
-/* ---- definition of internal fucntions --- */
+/* ----------------------------------------------- function definition ----------------------------------------------- */
 static void init_wifi(void);
-/* ---- definition of internal fucntions --- */
 
 static void init_wifi(void)
 {
@@ -52,6 +49,14 @@ static void init_wifi(void)
 
 void app_main()
 {
+    // initialize the non-volatile storage
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
     // initiliaze the wifi-functionality of the esp32
     init_wifi();
     // initialize sender and receiver and the vcp protocol

@@ -10,26 +10,21 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-/* ------ general constants ------- */
+/* --------------------------------------------- variables and constants --------------------------------------------- */
 
 #define ESPNOW_QUEUE_TIMEOUT 512
 
-/* -------- wifi constants -------- */
 #define ESPNOW_WIFI_MODE WIFI_MODE_STA
 #define ESPNOW_WIFI_IF ESP_IF_WIFI_STA
 #define ESPNOW_WIFI_CHANNEL 1
 
-/* -------- queue constants -------- */
 #define SENDER_QUEUE_SIZE 10
 #define RECEIVER_QUEUE_SIZE 5
 #define SENDER_ERROR_QUEUE_SIZE 5
 
-/* -------- key constants -------- */
-
 #define ESP_NOW_PMK "pmk1234567890123"
 #define ESP_NOW_LMK "lmk1234567890123"
 
-/* -------- data structures -------- */
 typedef struct
 {
     uint8_t mac_addr[ESP_NOW_ETH_ALEN];
@@ -44,7 +39,6 @@ typedef struct
     esp_now_send_status_t status;
 } q_send_error_data_t;
 
-/* User-defined field of ESP_NOW vendor specific content*/
 typedef struct
 {
     uint8_t transmit_type; // 0: unicast, 1: multicast

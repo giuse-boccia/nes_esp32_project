@@ -8,7 +8,7 @@
     * The data will be but in a queue and processed by another task
     *
 */
-/* ------------- external libs-------------- */
+/* --------------------------------------------------- external libs --------------------------------------------------- */
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
@@ -29,33 +29,33 @@
 #include "freertos/semphr.h"
 #include "freertos/timers.h"
 #include "nvs_flash.h"
-/* ------------- external libs-------------- */
 
-/* ------------- own includes -------------- */
+/* -------------------------------------------------- own includes --------------------------------------------------- */
 #include "config.h"
 #include "sender-receiver.h"
-/* ------------- own includes -------------- */
 
-/* -------- variables and constants -------- */
+/* --------------------------------------------- variables and constants --------------------------------------------- */
 QueueHandle_t receiver_queue;
 QueueHandle_t sender_queue;
 QueueHandle_t sender_error_queue;
 
-const uint8_t broadcast_mac[ESP_NOW_ETH_ALEN] = {
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-
+const uint8_t broadcast_mac[ESP_NOW_ETH_ALEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 const error_tags_t TAGS = {"espnow_receiver", "espnow_sender"};
 static uint16_t transmitter_sequence_numbers[2] = {0, 0};
 
-/* -------- variables and constants -------- */
-
-/* ---- definition of internal fucntions --- */
+/* ----------------------------------------------- function definition ----------------------------------------------- */
 static void sender_error_callback(const uint8_t *mac_addr, esp_now_send_status_t status);
 static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *data, int len);
 static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t *esp_now_data, uint8_t *payload, uint8_t transmit_type);
-/* ---- definition of internal fucntions --- */
+static esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t transmit_type, esp_now_send_param_t *esp_now_param);
 
-/* -------------- functions --------------- */
+/*
+ * ------------------------------------------------------------------
+ * Callback function which is called everytime data is sent via
+ * ESP-NOW, the function puts the data into a queue for further
+ * processing
+ * ------------------------------------------------------------------
+ */
 static void sender_error_callback(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
     q_send_error_data_t sender_error_data;
@@ -74,6 +74,12 @@ static void sender_error_callback(const uint8_t *mac_addr, esp_now_send_status_t
     }
 }
 
+/*
+ * ------------------------------------------------------------------
+ * Callback function for receiving data via ESP-NOW, the data is
+ * put into a queue for further processing
+ * ------------------------------------------------------------------
+ */
 static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *data, int len)
 {
     q_receive_data_t receive_data;
@@ -104,15 +110,27 @@ static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *da
     }
 }
 
+/*
+ * ------------------------------------------------------------------
+ * Function which decodes the data sent over ESP-NOW and checks if
+ * the data is valid using CRC algorithm
+ * ------------------------------------------------------------------
+ */
 esp_err_t parse_data(void)
 {
     // TODO
     return ESP_OK;
 }
 
-/* This functions is used to configure the vendor-specific content which contains the payload and some extra meta-data
- * TODO:    Add a proper CRC calculation
- *          Add and adapt relevant data-structure need for VCP
+/*
+ * ------------------------------------------------------------------
+ * Function which configures the vendor-specific content, the payload
+ * and the meta-data
+ *
+ * TODO:
+ * - Add a proper CRC calculation
+ * - Add and adapt relevant data-structure need for VCP
+ * ------------------------------------------------------------------
  */
 static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t *esp_now_data, uint8_t *payload, uint8_t transmit_type)
 {
@@ -130,7 +148,7 @@ static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t
     return ESP_OK;
 }
 
-esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t transmit_type, esp_now_send_param_t *esp_now_param)
+static esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t transmit_type, esp_now_send_param_t *esp_now_param)
 {
     // User-specific dealy bevor sending the next message
     vTaskDelay(sending_delay_ms / portTICK_PERIOD_MS);
@@ -152,14 +170,99 @@ esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t transmi
     return ESP_OK;
 }
 
+/*
+ * ------------------------------------------------------------------
+ * Task to send data via ESP-NOW
+ * Grabs data from the sender_queue and sends it via ESP-NOW
+ * ------------------------------------------------------------------
+ */
+static void send_data_task(void *pvParameters)
+{
+    /*
+     * ------------------------------------------------------------------
+     * TODO
+     * ------------------------------------------------------------------
+     */
+}
+
 esp_err_t init_sender_receiver(void)
 {
-    // TODO
+
+    /*
+     * ------------------------------------------------------------------
+     * setup of all required queues for async communication between tasks
+     * ------------------------------------------------------------------
+     */
+
+    receiver_queue = xQueueCreate(RECEIVER_QUEUE_SIZE, sizeof(q_receive_data_t));
+
+    if (receiver_queue == NULL)
+    {
+        ESP_LOGE(TAGS.receive_tag, "Error creating receiver queue");
+        return ESP_FAIL;
+    }
+
+    sender_queue = xQueueCreate(SENDER_QUEUE_SIZE, sizeof(esp_now_send_param_t));
+
+    if (sender_queue == NULL)
+    {
+        ESP_LOGE(TAGS.send_tag, "Error creating sender queue");
+        return ESP_FAIL;
+    }
+
+    sender_error_queue = xQueueCreate(SENDER_ERROR_QUEUE_SIZE, sizeof(q_send_error_data_t));
+
+    if (sender_error_queue == NULL)
+    {
+        ESP_LOGE(TAGS.send_tag, "Error creating sender error queue");
+        return ESP_FAIL;
+    }
+
+    /*
+     * ------------------------------------------------------------------
+     * Register all required callbacks and initialize the ESP-NOW module
+     * ------------------------------------------------------------------
+     */
+
+    ESP_ERROR_CHECK(esp_now_init());
+    ESP_ERROR_CHECK(esp_now_register_send_cb(sender_error_callback));
+    ESP_ERROR_CHECK(esp_now_register_recv_cb(receiver_callback));
+    ESP_ERROR_CHECK(esp_now_set_pmk((uint8_t *)ESP_NOW_PMK));
+
+    /*
+     * ------------------------------------------------------------------
+     * Register the broadcast MAC address as a peer and start the sender
+     * task
+     * ------------------------------------------------------------------
+     */
+
+    esp_now_peer_info_t *peer = malloc(sizeof(esp_now_peer_info_t));
+
+    if (peer == NULL)
+    {
+        ESP_LOGE(TAGS.send_tag, "Memory allocation error");
+        deinit_sender_receiver();
+        return ESP_FAIL;
+    }
+
+    memset(peer, 0, sizeof(esp_now_peer_info_t));
+    peer->channel = ESPNOW_WIFI_CHANNEL;
+    peer->ifidx = ESPNOW_WIFI_IF;
+    peer->encrypt = false;
+    memcpy(peer->peer_addr, broadcast_mac, ESP_NOW_ETH_ALEN);
+
+    ESP_ERROR_CHECK(esp_now_add_peer(peer));
+    free(peer);
+
+    xTaskCreate(send_data_task, "send_data_task", 2048, NULL, 4, NULL);
+
     return ESP_OK;
 }
 
-esp_err_t deinit_sender_receiver(void)
+void deinit_sender_receiver(void)
 {
-    // TODO
-    return ESP_OK;
+    vSemaphoreDelete(sender_queue);
+    vSemaphoreDelete(sender_error_queue);
+    vSemaphoreDelete(receiver_queue);
+    esp_now_deinit();
 }
