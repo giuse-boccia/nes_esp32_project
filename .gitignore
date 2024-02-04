@@ -5,8 +5,4 @@
 .vscode/ipch
 .vscode/extensions.json
 
-CMakeLists.txt
-platformio.ini
-sdkconfig.*
-
 **.DS_Store 

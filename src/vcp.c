@@ -31,6 +31,7 @@
 /* --------- external libs ---------- */
 
 /* ------------- own includes -------------- */
+#include "config.h"
 #include "sender-receiver.h"
 #include "vcp.h"
 /* ------------- own includes -------------- */
