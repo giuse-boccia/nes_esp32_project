@@ -16,6 +16,9 @@
 extern QueueHandle_t receiver_queue;
 extern QueueHandle_t sender_queue;
 extern QueueHandle_t sender_error_queue;
+
+extern const uint8_t broadcast_mac[ESP_NOW_ETH_ALEN];
+extern const error_tags_t TAGS;
 /* -------- variables and constants -------- */
 
 esp_err_t init_sender_receiver(void);
