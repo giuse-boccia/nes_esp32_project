@@ -52,7 +52,7 @@ static uint16_t transmitter_sequence_numbers[2] = {0, 0};
 /* ---- definition of internal fucntions --- */
 static void sender_error_callback(const uint8_t *mac_addr, esp_now_send_status_t status);
 static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *data, int len);
-static void deinit_sender_receiver(void);
+static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t *esp_now_data, uint8_t *payload, uint8_t transmit_type);
 /* ---- definition of internal fucntions --- */
 
 /* -------------- functions --------------- */
@@ -104,52 +104,61 @@ static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *da
     }
 }
 
-static void encode_data(void)
-{
-    //
-}
-
-static void decode_data(void)
+esp_err_t parse_data(void)
 {
     // TODO
+    return ESP_OK;
 }
 
-static void deinit_sender_receiver(void)
+/* This functions is used to configure the vendor-specific content which contains the payload and some extra meta-data
+ * TODO:    Add a proper CRC calculation
+ *          Add and adapt relevant data-structure need for VCP
+ */
+static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t *esp_now_data, uint8_t *payload, uint8_t transmit_type)
 {
-    // TODO
-}
+    esp_now_data->transmit_type = transmit_type;
+    esp_now_data->seq_num = transmitter_sequence_numbers[transmit_type]++;
+    esp_now_data->payload = payload;
 
-esp_err_t send_broadcast(uint16_t sending_delay_ms, uint8_t *data)
-{
-
-    // User-specific dealy bevor sending the next message
-    vTaskDelay(sending_delay_ms / portTICK_PERIOD_MS);
-
-    esp_now_data_t data_buffer;
-    esp_now_send_param_t send_param;
-
-    data_buffer.transmit_type = TRANSMIT_TYPE_BROADCAST;
-    data_buffer.seq_num = transmitter_sequence_numbers[TRANSMIT_TYPE_BROADCAST]++;
-    data_buffer.payload = data;
     // TODO --> do a propper CRC calculation with the data
-    data_buffer.crc = 0;
+    esp_now_data->crc = 0;
 
-    send_param.len = sizeof(esp_now_data_t);
-    send_param.buffer = (uint8_t *)&data_buffer;
-
-    memcpy(send_param.destination_mac, broadcast_mac, ESP_NOW_ETH_ALEN);
+    esp_now_param->len = sizeof(esp_now_data_t);
+    esp_now_param->buffer = (uint8_t *)esp_now_data;
+    memcpy(esp_now_param->destination_mac, broadcast_mac, ESP_NOW_ETH_ALEN);
 
     return ESP_OK;
 }
 
-esp_err_t send_unicast(void)
+esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t transmit_type, esp_now_send_param_t *esp_now_param)
 {
-    // TODO --> Add appropriate data-structure to the parameter of the function
-    // TODO --> encode the data and send the message
+    // User-specific dealy bevor sending the next message
+    vTaskDelay(sending_delay_ms / portTICK_PERIOD_MS);
+
+    esp_now_data_t esp_now_data;
+
+    if (encode_data(esp_now_param, esp_now_data, payload, transmit_type) != ESP_OK)
+    {
+        ESP_LOGE(TAGS.send_tag, "Error encoding data");
+        return ESP_FAIL;
+    }
+
+    if (esp_now_send(esp_now_param->destination_mac, esp_now_param->buffer, esp_now_param->len) != ESP_OK)
+    {
+        ESP_LOGE(TAGS.send_tag, "Error sending message");
+        return ESP_FAIL;
+    }
+
     return ESP_OK;
 }
 
 esp_err_t init_sender_receiver(void)
+{
+    // TODO
+    return ESP_OK;
+}
+
+esp_err_t deinit_sender_receiver(void)
 {
     // TODO
     return ESP_OK;

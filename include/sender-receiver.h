@@ -18,10 +18,12 @@ extern QueueHandle_t sender_queue;
 extern QueueHandle_t sender_error_queue;
 
 extern const uint8_t broadcast_mac[ESP_NOW_ETH_ALEN];
+
 /* -------- variables and constants -------- */
 
 esp_err_t init_sender_receiver(void);
-esp_err_t send_multicast(void);
-esp_err_t send_unicast(void);
+esp_err_t deinit_sender_receiver(void);
+esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t transmit_type, esp_now_send_param_t *esp_now_param);
+esp_err_t parse_data(void);
 
 #endif
