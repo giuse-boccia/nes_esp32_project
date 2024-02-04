@@ -10,9 +10,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-/* ------ general constants ------- */
-
-#define ESPNOW_QUEUE_TIMEOUT 512
 /* -------- wifi constants -------- */
 #define ESPNOW_WIFI_MODE WIFI_MODE_STA
 #define ESPNOW_WIFI_IF ESP_IF_WIFI_STA
@@ -23,6 +20,7 @@
 #define RECEIVER_QUEUE_SIZE 5
 #define SENDER_ERROR_QUEUE_SIZE 5
 
+<<<<<<< HEAD
 /* -------- key constants -------- */
 
 #define ESP_NOW_PMK "pmk1234567890123"
@@ -71,4 +69,6 @@ typedef struct
     char *send_tag;
 } error_tags_t;
 
+=======
+>>>>>>> parent of 18401d9 (AD callback implemtation)
 #endif

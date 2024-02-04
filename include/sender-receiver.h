@@ -16,9 +16,12 @@
 extern QueueHandle_t receiver_queue;
 extern QueueHandle_t sender_queue;
 extern QueueHandle_t sender_error_queue;
+<<<<<<< HEAD
 
 extern const uint8_t broadcast_mac[ESP_NOW_ETH_ALEN];
 
+=======
+>>>>>>> parent of 18401d9 (AD callback implemtation)
 /* -------- variables and constants -------- */
 
 esp_err_t init_sender_receiver(void);
