@@ -29,8 +29,9 @@
 /* --------- external libs ---------- */
 
 /* ---------- own includes ---------- */
-#include "sender-receiver.h"
 #include "config.h"
+#include "sender-receiver.h"
+#include "vcp.h"
 /* ---------- own includes ---------- */
 
 /* ---- definition of internal fucntions --- */

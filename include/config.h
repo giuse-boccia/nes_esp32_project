@@ -67,8 +67,8 @@ typedef struct
 
 typedef struct
 {
-    uint8_t *receive_tag;
-    uint8_t *send_tag;
+    char *receive_tag;
+    char *send_tag;
 } error_tags_t;
 
 #endif

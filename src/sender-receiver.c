@@ -136,7 +136,8 @@ esp_err_t send_broadcast(uint16_t sending_delay_ms, uint8_t *data)
 
     send_param.len = sizeof(esp_now_data_t);
     send_param.buffer = (uint8_t *)&data_buffer;
-    send_param.destination_mac = broadcast_mac;
+
+    memcpy(send_param.destination_mac, broadcast_mac, ESP_NOW_ETH_ALEN);
 
     return ESP_OK;
 }
