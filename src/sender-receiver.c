@@ -46,8 +46,8 @@ static uint16_t transmitter_sequence_numbers[2] = {0, 0};
 /* ----------------------------------------------- function definition ----------------------------------------------- */
 static void sender_error_callback(const uint8_t *mac_addr, esp_now_send_status_t status);
 static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *data, int len);
-static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t *esp_now_data, uint8_t *payload, uint8_t transmit_type);
-static esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t transmit_type, esp_now_send_param_t *esp_now_param);
+static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t *esp_now_data);
+static esp_err_t send_data(esp_now_data_t *esp_now_data);
 
 /*
  * ------------------------------------------------------------------
@@ -102,10 +102,11 @@ static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *da
 
     memcpy(receive_data.data, data, len);
     receive_data.data_len = len;
+    receive_data.rssi = info->rx_ctrl->rssi;
 
     if (xQueueSend(receiver_queue, &receive_data, ESPNOW_QUEUE_TIMEOUT) != pdTRUE)
     {
-        ESP_LOGE(TAGS.receive_tag, "Queue send error");
+        ESP_LOGE(TAGS.receive_tag, "Receiving data queue error");
         free(receive_data.data);
     }
 }
@@ -116,10 +117,28 @@ static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *da
  * the data is valid using CRC algorithm
  * ------------------------------------------------------------------
  */
-esp_err_t parse_data(void)
+// esp_now_data_t parse_data(q_receive_data_t *received_message)
+// {
+//     //
+// }
+
+void print_esp_now_data_t(esp_now_data_t *data)
 {
-    // TODO
-    return ESP_OK;
+    printf("\n-----------------------------------------------\n");
+    printf("Transmit Type: %d\n", data->transmit_type);
+    printf("Destination MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",
+           data->destination_mac[0], data->destination_mac[1], data->destination_mac[2],
+           data->destination_mac[3], data->destination_mac[4], data->destination_mac[5]);
+    printf("Sequence Number: %d\n", data->seq_num);
+    printf("CRC: %d\n", data->crc);
+    printf("Payload Length: %d\n", data->payload_length);
+    // Print the payload as a string
+    printf("Payload: ");
+    for (int i = 0; i < data->payload_length; i++)
+    {
+        printf("0x%x", data->payload[i]);
+    }
+    printf("\n-----------------------------------------------\n");
 }
 
 /*
@@ -132,38 +151,60 @@ esp_err_t parse_data(void)
  * - Add and adapt relevant data-structure need for VCP
  * ------------------------------------------------------------------
  */
-static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t *esp_now_data, uint8_t *payload, uint8_t transmit_type)
+static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t *esp_now_data)
 {
-    esp_now_data->transmit_type = transmit_type;
-    esp_now_data->seq_num = transmitter_sequence_numbers[transmit_type]++;
-    esp_now_data->payload = payload;
+    esp_now_param->len = sizeof(esp_now_data_t) + esp_now_data->payload_length;
+    esp_now_param->buffer = (uint8_t *)malloc(esp_now_param->len);
 
-    // TODO --> do a propper CRC calculation with the data
-    esp_now_data->crc = 0;
+    if (esp_now_param->buffer == NULL)
+    {
+        ESP_LOGE(TAGS.send_tag, "Memory allocation error");
+        return ESP_FAIL;
+    }
 
-    esp_now_param->len = sizeof(esp_now_data_t);
-    esp_now_param->buffer = (uint8_t *)esp_now_data;
-    memcpy(esp_now_param->destination_mac, broadcast_mac, ESP_NOW_ETH_ALEN);
+    esp_now_data->seq_num = transmitter_sequence_numbers[esp_now_data->transmit_type]++;
+    esp_now_data->crc = 1234;
+
+    memset(esp_now_param->buffer, 0, esp_now_param->len);
+    memcpy(esp_now_param->buffer, esp_now_data, esp_now_param->len);
+
+    // TODO --> do a propper CRC calculation with the dat
+
+    if (esp_now_data->transmit_type == TRANSMIT_TYPE_BROADCAST)
+    {
+        memcpy(esp_now_param->destination_mac, broadcast_mac, ESP_NOW_ETH_ALEN);
+    }
+    else if (esp_now_data->transmit_type == TRANSMIT_TYPE_UNICAST)
+    {
+        memcpy(esp_now_param->destination_mac, esp_now_data->destination_mac, ESP_NOW_ETH_ALEN);
+    }
 
     return ESP_OK;
 }
 
-static esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t transmit_type, esp_now_send_param_t *esp_now_param)
+static esp_err_t send_data(esp_now_data_t *esp_now_data)
 {
-    // User-specific dealy bevor sending the next message
-    vTaskDelay(sending_delay_ms / portTICK_PERIOD_MS);
+    esp_now_send_param_t *esp_now_param = malloc(sizeof(esp_now_send_param_t));
+    memset(esp_now_param, 0, sizeof(esp_now_send_param_t));
 
-    esp_now_data_t esp_now_data;
-
-    if (encode_data(esp_now_param, &esp_now_data, payload, transmit_type) != ESP_OK)
+    if (encode_data(esp_now_param, esp_now_data) != ESP_OK)
     {
         ESP_LOGE(TAGS.send_tag, "Error encoding data");
+        free(esp_now_param);
+        free(esp_now_data);
         return ESP_FAIL;
     }
+
+    uint8_t *own_mac = (uint8_t *)malloc(ESP_NOW_ETH_ALEN);
+    esp_wifi_get_mac(ESPNOW_WIFI_IF, own_mac);
+
+    printf("Sending data from: " MACSTR " with length: %d\n", MAC2STR(own_mac), esp_now_param->len);
 
     if (esp_now_send(esp_now_param->destination_mac, esp_now_param->buffer, esp_now_param->len) != ESP_OK)
     {
         ESP_LOGE(TAGS.send_tag, "Error sending message");
+        free(esp_now_param);
+        free(esp_now_data);
         return ESP_FAIL;
     }
 
@@ -178,11 +219,26 @@ static esp_err_t send_data(uint16_t sending_delay_ms, uint8_t *payload, uint8_t 
  */
 static void send_data_task(void *pvParameters)
 {
-    /*
-     * ------------------------------------------------------------------
-     * TODO
-     * ------------------------------------------------------------------
-     */
+
+    esp_now_data_t esp_now_data;
+
+    while (1)
+    {
+        // User-specific dealy bevor sending the next message
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+
+        if (uxQueueMessagesWaiting(sender_queue) > 0)
+        {
+            if (xQueueReceive(sender_queue, &esp_now_data, portMAX_DELAY) == pdPASS)
+            {
+
+                if (send_data(&esp_now_data) != ESP_OK)
+                {
+                    ESP_LOGE(TAGS.send_tag, "Error sending data");
+                }
+            }
+        }
+    }
 }
 
 esp_err_t init_sender_receiver(void)
@@ -202,7 +258,7 @@ esp_err_t init_sender_receiver(void)
         return ESP_FAIL;
     }
 
-    sender_queue = xQueueCreate(SENDER_QUEUE_SIZE, sizeof(esp_now_send_param_t));
+    sender_queue = xQueueCreate(SENDER_QUEUE_SIZE, sizeof(esp_now_data_t));
 
     if (sender_queue == NULL)
     {
@@ -254,7 +310,7 @@ esp_err_t init_sender_receiver(void)
     ESP_ERROR_CHECK(esp_now_add_peer(peer));
     free(peer);
 
-    xTaskCreate(send_data_task, "send_data_task", 2048, NULL, 4, NULL);
+    xTaskCreate(send_data_task, "send_data_task", 2048, NULL, 5, NULL);
 
     return ESP_OK;
 }

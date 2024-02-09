@@ -14,16 +14,20 @@
 
 #define ESPNOW_QUEUE_TIMEOUT 512
 
-#define ESPNOW_WIFI_MODE WIFI_MODE_STA
-#define ESPNOW_WIFI_IF ESP_IF_WIFI_STA
+#define ESPNOW_WIFI_MODE WIFI_MODE_AP
+#define ESPNOW_WIFI_IF ESP_IF_WIFI_AP
 #define ESPNOW_WIFI_CHANNEL 1
 
 #define SENDER_QUEUE_SIZE 10
 #define RECEIVER_QUEUE_SIZE 5
 #define SENDER_ERROR_QUEUE_SIZE 5
 
+#define ESPNOW_SENDING_DELAY_MS 1000
+
 #define ESP_NOW_PMK "pmk1234567890123"
 #define ESP_NOW_LMK "lmk1234567890123"
+
+#define PHYSICAL_NEIGHBOURS ;
 
 typedef struct
 {
@@ -41,10 +45,12 @@ typedef struct
 
 typedef struct
 {
-    uint8_t transmit_type; // 0: unicast, 1: multicast
-    uint16_t seq_num;      // sequence number
-    uint16_t crc;          // crc16
-    uint8_t *payload;      // data
+    uint8_t transmit_type; // 0: unicast, 1: broadcast
+    uint8_t destination_mac[ESP_NOW_ETH_ALEN];
+    uint16_t seq_num;       // sequence number
+    uint16_t crc;           // crc16
+    uint8_t payload_length; // length of the data
+    uint8_t payload[0];     // data
 } esp_now_data_t;
 
 enum
