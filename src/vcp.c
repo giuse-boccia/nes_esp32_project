@@ -35,13 +35,14 @@
 #include "vcp.h"
 
 /* --------------------------------------------- variables and constants --------------------------------------------- */
-static vcp_cord_positions_t cord_positions = {0, 0, 0};
 
 /* ----------------------------------------------- function definition ----------------------------------------------- */
-static void cord_maintenance(void);
+static void
+cord_maintenance(void);
 static void check_sending_error(void);
 static void greedy_routing(void);
-static void vcp_state_machine(void);
+static void vcp_state_machine(void *pvParameters);
+static esp_err_t create_hello_message();
 
 static void cord_maintenance(void)
 {
@@ -65,46 +66,39 @@ static void greedy_routing(void)
  * sender_queue
  * ------------------------------------------------------------------
  */
-static esp_err_t create_hello_message(esp_now_send_param_t *esp_now_param)
+static esp_err_t to_sender_queue(esp_now_data_t *esp_now_data)
 {
-    esp_now_param = malloc(sizeof(esp_now_send_param_t));
 
-    // This is just an example, you can change the payload to your needs
-    uint8_t hello_message_payload[3] = {0x01, 0x02, 0x03};
-    size_t payload_length = sizeof(hello_message_payload);
-
-    if (esp_now_param == NULL)
-    {
-        ESP_LOGE(TAGS.send_tag, "Could not allocate memory for esp_now_param");
-        return ESP_FAIL;
-    }
-
-    memset(esp_now_param, 0, sizeof(esp_now_send_param_t));
-
-    esp_now_param->len = payload_length + sizeof(esp_now_data_t);
-    esp_now_param->buffer = malloc(esp_now_param->len);
-
-    if (esp_now_param->buffer == NULL)
-    {
-        ESP_LOGE(TAGS.send_tag, "Could not allocate memory for esp_now_param->buffer");
-        free(esp_now_param);
-        return ESP_FAIL;
-    }
-
-    esp_now_data_t *buffer = (esp_now_data_t *)esp_now_param->buffer;
-    buffer->transmit_type = TRANSMIT_TYPE_BROADCAST;
-
-    memcpy(buffer->payload, hello_message_payload, payload_length);
-
-    if (xQueueSend(sender_queue, esp_now_param, portMAX_DELAY) != pdTRUE)
+    if (xQueueSend(sender_queue, esp_now_data, portMAX_DELAY) != pdTRUE)
     {
         ESP_LOGE(TAGS.send_tag, "Could not send hello message");
-        free(esp_now_param->buffer);
-        free(esp_now_param);
         return ESP_FAIL;
     }
 
     return ESP_OK;
+}
+
+static esp_err_t create_hello_message()
+{
+
+    uint8_t total_length = sizeof(esp_now_data_t) + sizeof(broadcast_mac);
+    /* Allocate memory on the heap */
+    esp_now_data_t *esp_now_data = (esp_now_data_t *)malloc(total_length);
+
+    if (esp_now_data == NULL)
+    {
+        ESP_LOGE(TAGS.send_tag, "Could not allocate memory for hello message");
+        return ESP_FAIL;
+    }
+    /* Fill the esp_now_data_t struct with the data */
+    memset(esp_now_data, 0, total_length);
+    esp_now_data->transmit_type = TRANSMIT_TYPE_BROADCAST;
+    esp_now_data->payload_length = sizeof(broadcast_mac);
+    memcpy(esp_now_data->payload, broadcast_mac, sizeof(broadcast_mac));
+
+    /* Send the pointer to the data-struct to the sender_queue using the to_sender_queue function*/
+
+    return to_sender_queue(esp_now_data);
 }
 
 /*
@@ -112,35 +106,47 @@ static esp_err_t create_hello_message(esp_now_send_param_t *esp_now_param)
  * This function is the main state machine of the VCP
  * ------------------------------------------------------------------
  */
-static void vcp_state_machine(void)
+static void vcp_state_machine(void *pvParameters)
 {
-
     /* On startup - do variable initialization and send an initial hello message through ESP-NOW */
 
-    esp_now_send_param_t esp_now_param;
-    esp_now_data_t esp_now_data;
-
-    if (create_hello_message(&esp_now_param) != ESP_OK)
-    {
-        ESP_LOGE(TAGS.send_tag, "Could not create hello message");
-
-        // TODO react to the error
-    }
+    q_receive_data_t received_data;
+    q_send_error_data_t send_error_data;
 
     /* startup done - start the main loop and react on incoming messages, do the cord maintenance */
 
     while (1)
     {
-        // TODO react on incoming messages
-        // TODO do the cord maintenance
-        // TODO check if the sending was successful
-        // TODO do the greedy routing
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+        if (create_hello_message() != ESP_OK)
+        {
+            ESP_LOGE(TAGS.send_tag, "Could not create hello message");
+        }
+
+        if (uxQueueMessagesWaiting(receiver_queue) > 0)
+        {
+            if (xQueueReceive(receiver_queue, &received_data, portMAX_DELAY) == pdTRUE)
+            {
+                printf("Received data from: " MACSTR " with length: %d\n", MAC2STR(received_data.mac_addr), received_data.data_len);
+            }
+        }
+
+        if (uxQueueMessagesWaiting(sender_error_queue) > 0)
+        {
+            if (xQueueReceive(sender_error_queue, &send_error_data, portMAX_DELAY) != pdTRUE)
+            {
+                ESP_LOGE(TAGS.receive_tag, "Sending error status: %d\n", send_error_data.status);
+            }
+        }
     }
 }
 
 esp_err_t init_vcp(void)
 {
-    // TODO
+
+    xTaskCreate(vcp_state_machine, "vcp_state_machine", 4096, NULL, 4, NULL);
+
     return ESP_OK;
 }
 

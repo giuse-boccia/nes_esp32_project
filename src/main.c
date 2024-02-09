@@ -57,6 +57,7 @@ void app_main()
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
     // initiliaze the wifi-functionality of the esp32
     init_wifi();
     // initialize sender and receiver and the vcp protocol

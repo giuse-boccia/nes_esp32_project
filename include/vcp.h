@@ -17,6 +17,7 @@
  * The physical neighbors array is sized to 20, which is the maximum amount of peers that can be comupted by the ESP-NOW
  * protocol
  */
+
 typedef struct
 {
     float lower_neighbor_cord_position;
