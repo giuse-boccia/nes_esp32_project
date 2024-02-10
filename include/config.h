@@ -21,13 +21,29 @@
 #define SENDER_QUEUE_SIZE 10
 #define RECEIVER_QUEUE_SIZE 5
 #define SENDER_ERROR_QUEUE_SIZE 5
+#define ESP_NOW_MAX_PEERS 20
 
 #define ESPNOW_SENDING_DELAY_MS 1000
+#define VCP_TASK_DELAY_MS 1000
 
 #define ESP_NOW_PMK "pmk1234567890123"
 #define ESP_NOW_LMK "lmk1234567890123"
 
 #define PHYSICAL_NEIGHBOURS ;
+
+/* Message types used in vcp_message_data_t */
+#define VCP_HELLO 0x00
+#define VCP_JOIN 0x01
+#define VCP_DATA 0x02
+#define VCP_ERROR 0x03
+
+/* VCP parameters */
+#define VCP_START 0.0
+#define VCP_END 1.0
+#define VCP_INITIAL -1.0
+#define VCP_INTERVAL 0.1
+#define VCP_VIRT_INTERVAL 0.9
+
 
 typedef struct
 {
@@ -36,6 +52,13 @@ typedef struct
     uint8_t data_len;
     int8_t rssi;
 } q_receive_data_t;
+
+typedef struct
+{
+    uint8_t msg_type;
+    uint8_t * args;
+} vcp_message_data_t;
+
 
 typedef struct
 {
