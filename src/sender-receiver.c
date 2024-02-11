@@ -126,22 +126,6 @@ esp_now_data_t parse_data(q_receive_data_t *received_message)
     return result;
 }
 
-void print_esp_now_data_t(esp_now_data_t *data)
-{
-    printf("\n-----------------------------------------------\n");
-    printf("Transmit Type: %d\n", data->transmit_type);
-    printf("Destination MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",
-           data->mac_addr[0], data->mac_addr[1], data->mac_addr[2],
-           data->mac_addr[3], data->mac_addr[4], data->mac_addr[5]);
-    printf("Payload Length: %d\n", data->payload_length);
-    // Print the payload as a string
-    printf("Payload: ");
-    for (int i = 0; i < data->payload_length; i++)
-    {
-        printf("0x%x", data->payload[i]);
-    }
-    printf("\n-----------------------------------------------\n");
-}
 
 /*
  * ------------------------------------------------------------------
