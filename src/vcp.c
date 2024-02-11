@@ -46,7 +46,7 @@ vcp_neighbor_data_t neighbors[ESP_NOW_MAX_PEERS];
 /* ----------------------------------------------- function definition ----------------------------------------------- */
 static void vcp_state_machine(void *pvParameters);
 static esp_err_t handle_vcp_message(q_receive_data_t received_data);
-static esp_err_t join_virtual_cord(void);
+static void join_virtual_cord(void);
 static esp_err_t new_hello_message(void);
 static esp_err_t new_update_message(uint8_t, uint8_t[ESP_NOW_ETH_ALEN], float);
 static esp_err_t new_create_virtual_node_message(void);
@@ -131,7 +131,7 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
         break;
     case VCP_UPDATE_SUCCESSOR:
         // update my successor and my cord position
-        msg_args = received_data.data + 1;
+        msg_args = (float*)received_data.data + 1;
         own_position = msg_args[0];
         n = find_neighbor_addr(received_data.mac_addr);
         if (n != -1) {
@@ -151,7 +151,7 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
         break;
     case VCP_UPDATE_PREDECESSOR:
         // update my predecessor and my cord position
-        msg_args = received_data.data + 1;
+        msg_args = (float*)(received_data.data + 1);
         own_position = msg_args[0];
         n = find_neighbor_addr(received_data.mac_addr);
         if (n != -1) {
@@ -198,7 +198,7 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
  *   D. None of the previous ones ---> create virtual node
  * ------------------------------------------------------------------
  */
-static void join_virtual_cord(void) {
+static void join_virtual_cord() {
     float new_neighbor_position;
     int8_t n;
 
@@ -209,7 +209,7 @@ static void join_virtual_cord(void) {
     }
 
     // CASE A: I am neighbor with node 0.0
-    n = find_neighbor(VCP_START);
+    n = find_neighbor_pos(VCP_START);
     if (n != -1) {
         own_position = VCP_START;
         i_successor = n;
@@ -224,7 +224,7 @@ static void join_virtual_cord(void) {
     }
 
     // CASE B: I am neighbor with node 1.0
-    n = find_neighbor(VCP_END);
+    n = find_neighbor_pos(VCP_END);
     if (n != -1) {
         own_position = VCP_END;
         i_successor = -1;
@@ -235,8 +235,8 @@ static void join_virtual_cord(void) {
     }
 
     // CASE C: I am neighbor with 2 nodes that are neighbor with each other
-    for (int i = 0; i < neighbors_len && !found; i++) {
-        for (int j = 0; j < neighbors_len && !found; j++) {
+    for (int i = 0; i < neighbors_len; i++) {
+        for (int j = 0; j < neighbors_len; j++) {
             if ((i != j) && (neighbors[i].predecessor == neighbors[j].position)) {
                 // neighbor j is predecessor to neighbor i
                 own_position = position(neighbors[j].position, neighbors[i].position);
@@ -251,6 +251,7 @@ static void join_virtual_cord(void) {
 
     // CASE D: create virtual node
     // TODO create virtual node. For the moment, own_position stays at VCP_INITIAL
+    new_create_virtual_node_message();
     own_position = VCP_INITIAL;
     return;
 
@@ -272,7 +273,7 @@ static esp_err_t new_hello_message() {
     esp_now_data->payload_length = sizeof(broadcast_mac);
     memcpy(esp_now_data->destination_mac, broadcast_mac, sizeof(broadcast_mac));
     esp_now_data->payload_length = 1;   // message contains only 1 byte, no args
-    esp_now_data->payload = malloc(esp_now_data->payload_length);
+    esp_now_data->payload = (uint8_t*)malloc(esp_now_data->payload_length);
     esp_now_data->payload[0] = VCP_HELLO;
     return to_sender_queue(esp_now_data);
 }
@@ -282,10 +283,12 @@ static esp_err_t new_update_message(uint8_t type, uint8_t to[ESP_NOW_ETH_ALEN], 
     // should the msg include my own position?
     //      YES -> so the receiver can save me as his new neighbor (but he doesn't know my succ and pred...)
     //      NO -> this info will be included in my next hello msg (what if he misses it ??)
+    return ESP_OK;
 }
 
 static esp_err_t new_create_virtual_node_message() {
     // TODO maybe skip this part...
+    return ESP_OK;
 }
 
 /*

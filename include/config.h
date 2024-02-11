@@ -72,7 +72,7 @@ typedef struct {
     uint16_t seq_num;       // sequence number
     uint16_t crc;           // crc16
     uint8_t payload_length; // length of the data
-    uint8_t payload[0];     // data
+    uint8_t *payload;     // data
 } esp_now_data_t;
 
 enum {
