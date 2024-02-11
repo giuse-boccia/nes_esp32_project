@@ -49,7 +49,6 @@ static esp_err_t handle_vcp_message(esp_now_data_t);
 static void join_virtual_cord(void);
 static esp_err_t new_hello_message(void);
 static esp_err_t new_update_message(uint8_t, uint8_t[ESP_NOW_ETH_ALEN], float);
-static esp_err_t new_create_virtual_node_message(void);
 static esp_err_t new_data_message(float, char[]);
 static esp_err_t create_message(vcp_message_data_t, uint8_t[ESP_NOW_ETH_ALEN]);
 static esp_err_t to_sender_queue(esp_now_data_t *);
@@ -274,6 +273,8 @@ static void join_virtual_cord() {
 /* Creates a new hello message */
 static esp_err_t new_hello_message() {
     vcp_message_data_t msg;
+    uint8_t to[ESP_NOW_ETH_ALEN];
+
     float args[3] = { own_position, VCP_INITIAL, VCP_INITIAL };
 
     if (i_successor != -1) { args[1] = neighbors[i_successor].position; }
@@ -281,7 +282,8 @@ static esp_err_t new_hello_message() {
     msg.type = VCP_HELLO;
     msg.args = args;
 
-    return create_message(msg, broadcast_mac);
+    memcpy(to, broadcast_mac, sizeof(broadcast_mac));
+    return create_message(msg, to);
 }
 
 /* Creates a new update message */
@@ -293,15 +295,6 @@ static esp_err_t new_update_message(uint8_t type, uint8_t to[ESP_NOW_ETH_ALEN], 
     msg.args = args;
 
     return create_message(msg, to);
-}
-
-/* Creates a new create virtual node message */
-static esp_err_t new_create_virtual_node_message(void) {
-    vcp_message_data_t msg;
-
-    msg.type = VCP_CREATE_VIRTUAL_NODE;
-    // empty message for now, because virtual nodes are not implemented yet
-    return create_message(msg, broadcast_mac);
 }
 
 /* Creates a new data message */
@@ -321,7 +314,7 @@ static esp_err_t new_data_message(float to, char content[]) {
     strcpy((char *)(((float *)(msg.args)) + 1), content);       // pointer hell but should work :_)
 
     // if recipient is my neighbour, send it directly to him, otherwise send msg to successor
-    int8_t n = find_neighbor_pos(to);
+    n = find_neighbor_pos(to);
     if (n != -1) {
         return create_message(msg, neighbors[n].mac_addr);
     }
