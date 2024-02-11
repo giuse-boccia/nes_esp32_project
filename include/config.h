@@ -42,10 +42,10 @@
 
 /*
  * MESSAGE TYPES
- * - HELLO (0x00) + float + float + float  ----> 13 bytes
- * - UPDATE_SUCCESSOR (0x01) + float       ----> 5 bytes
- * - UPDATE_PREDECESSOR (0x02) + float     ----> 5 bytes
- * - DATA (0x04) + char[]                  ----> ? bytes
+ * - HELLO (0x00) + float + float + float                   ----> 13 bytes
+ * - UPDATE_SUCCESSOR (0x01) + float                        ----> 5 bytes
+ * - UPDATE_PREDECESSOR (0x02) + float                      ----> 5 bytes
+ * - DATA (0x04) + float(receiver) + char[]                 ----> ? bytes (at least 5)
  * 
 
 */

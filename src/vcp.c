@@ -44,11 +44,11 @@ vcp_neighbor_data_t neighbors[ESP_NOW_MAX_PEERS];
 // TODO virtual nodes ??
 
 /* ----------------------------------------------- function definition ----------------------------------------------- */
-static void vcp_state_machine(void *pvParameters);
-static esp_err_t handle_vcp_message(q_receive_data_t received_data);
+static void vcp_state_machine(void *);
+static esp_err_t handle_vcp_message(esp_now_data_t);
 static void join_virtual_cord(void);
-static esp_err_t create_message(vcp_message_data_t msg, uint8_t to[ESP_NOW_ETH_ALEN]);
-static esp_err_t to_sender_queue(esp_now_data_t *esp_now_data);
+static esp_err_t create_message(vcp_message_data_t, uint8_t[ESP_NOW_ETH_ALEN]);
+static esp_err_t to_sender_queue(esp_now_data_t *);
 static int8_t find_neighbor_pos(float);
 static int8_t find_neighbor_addr(uint8_t[ESP_NOW_ETH_ALEN]);
 static int cmp_mac_addr(uint8_t[ESP_NOW_ETH_ALEN], uint8_t[ESP_NOW_ETH_ALEN]);
@@ -97,8 +97,7 @@ static void vcp_state_machine(void *pvParameters) {
 
         while (uxQueueMessagesWaiting(receiver_queue) > 0) {
             if (xQueueReceive(receiver_queue, &received_data, portMAX_DELAY) == pdTRUE) {
-                // handle_vcp_message(parse_data(&received_data));
-                handle_vcp_message(received_data);  // wrong
+                handle_vcp_message(parse_data(&received_data));
             }
         }
 
@@ -116,34 +115,31 @@ static void vcp_state_machine(void *pvParameters) {
  * This function handles a received message and updates the vcp state
  * -------------------------------------------------------------------------------------
 */
-// TODO take esp_now_data_t
-static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
-    vcp_message_data_t msg_data;
+static esp_err_t handle_vcp_message(esp_now_data_t msg){
     int8_t n;
-    float *float_args;
-    msg_data.msg_type = received_data.data[0];  // first byte is the message type
-    msg_data.args = (void *)(received_data.data + 1);
+    float recipient;
 
-    switch (msg_data.msg_type) {
+
+    switch (msg.payload->msg_type) {
     case VCP_HELLO:
-        float_args = (float*)(received_data.data + 1);
-        n = find_neighbor_addr(received_data.mac_addr);
+        n = find_neighbor_addr(msg.mac_addr);
         if (n == -1) {
-            neighbors[neighbors_len].position = float_args[0];;
-            neighbors[neighbors_len].successor = float_args[1];
-            neighbors[neighbors_len].predecessor = float_args[2];
-            memcpy(neighbors[neighbors_len].mac_addr, received_data.mac_addr, sizeof(received_data.mac_addr));
+            // add new neighbor
+            neighbors[neighbors_len].position = ((float*)(msg.payload->args))[0];
+            neighbors[neighbors_len].successor = ((float*)(msg.payload->args))[1];
+            neighbors[neighbors_len].predecessor = ((float*)(msg.payload->args))[2];
+            memcpy(neighbors[neighbors_len].mac_addr, msg.mac_addr, sizeof(msg.mac_addr));
         } else {
-            neighbors[n].position = float_args[0];
-            neighbors[n].successor = float_args[1];
-            neighbors[n].predecessor = float_args[2];
+            // update existing neighbor
+            neighbors[n].position = ((float*)(msg.payload->args))[0];
+            neighbors[n].successor = ((float*)(msg.payload->args))[1];
+            neighbors[n].predecessor = ((float*)(msg.payload->args))[2];
         }
         break;
     case VCP_UPDATE_SUCCESSOR:
         // update my successor and my cord position
-        float_args = (float*)(received_data.data + 1);
-        own_position = float_args[0];
-        n = find_neighbor_addr(received_data.mac_addr);
+        own_position = ((float*)(msg.payload->args))[0];
+        n = find_neighbor_addr(msg.mac_addr);
         if (n != -1) {
             i_successor = n;
         } else {
@@ -152,7 +148,7 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
                 neighbors[neighbors_len].position = VCP_INITIAL;
                 neighbors[neighbors_len].successor = VCP_INITIAL;
                 neighbors[neighbors_len].predecessor = VCP_INITIAL;
-                memcpy(neighbors[neighbors_len].mac_addr, received_data.mac_addr, sizeof(received_data.mac_addr));
+                memcpy(neighbors[neighbors_len].mac_addr, msg.mac_addr, sizeof(msg.mac_addr));
                 neighbors_len++;
             } else {
                 ESP_LOGE(TAGS.receive_tag, "Can't add neighbor, max number of peers reached");
@@ -161,9 +157,8 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
         break;
     case VCP_UPDATE_PREDECESSOR:
         // update my predecessor and my cord position
-        float_args = (float*)(received_data.data + 1);
-        own_position = float_args[0];
-        n = find_neighbor_addr(received_data.mac_addr);
+        own_position = ((float*)(msg.payload->args))[0];
+        n = find_neighbor_addr(msg.mac_addr);
         if (n != -1) {
             i_predecessor = n;
         } else {
@@ -172,7 +167,7 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
                 neighbors[neighbors_len].position = VCP_INITIAL;
                 neighbors[neighbors_len].successor = VCP_INITIAL;
                 neighbors[neighbors_len].predecessor = VCP_INITIAL;
-                memcpy(neighbors[neighbors_len].mac_addr, received_data.mac_addr, sizeof(received_data.mac_addr));
+                memcpy(neighbors[neighbors_len].mac_addr, msg.mac_addr, sizeof(msg.mac_addr));
                 neighbors_len++;
             } else {
                 ESP_LOGE(TAGS.receive_tag, "Can't add neighbor, max number of peers reached");
@@ -183,17 +178,23 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
         // TODO create virtual node, send update messages
         break;
     case VCP_DATA:
-        printf("Received data: %s\n", (char*)(received_data.data + 1));
+        // If message is for me, print, otherwise forward to successor
+        recipient = ((float*)msg.payload->args)[0];
+        if (recipient == own_position) {
+            printf("Received data: %s\n", (char*)(msg.payload->args + 1));
+        } else {
+            // TODO forward to successor / greedy routing
+        }
         break;
     case VCP_ERR:
-        // TODO print error
+        printf("Received error message\n");
         break;
     default:
-        break;  // ignore messages with unknown type (or print error ??)
+        printf("Received message of unknown type: %x\n", msg.payload->msg_type);
+        break;
     }
     return ESP_OK;
 }
-
 
 /*
  * ------------------------------------------------------------------
@@ -261,7 +262,7 @@ static void join_virtual_cord() {
 
     // CASE D: create virtual node
     // TODO create virtual node. For the moment, own_position stays at VCP_INITIAL
-    new_create_virtual_node_message();
+    // new_create_virtual_node_message();
     own_position = VCP_INITIAL;
     return;
 
