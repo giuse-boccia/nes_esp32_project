@@ -47,6 +47,10 @@ vcp_neighbor_data_t neighbors[ESP_NOW_MAX_PEERS];
 static void vcp_state_machine(void *);
 static esp_err_t handle_vcp_message(esp_now_data_t);
 static void join_virtual_cord(void);
+static esp_err_t new_hello_message(void);
+static esp_err_t new_update_message(uint8_t, uint8_t[ESP_NOW_ETH_ALEN], float);
+static esp_err_t new_create_virtual_node_message(void);
+static esp_err_t new_data_message(float, char[]);
 static esp_err_t create_message(vcp_message_data_t, uint8_t[ESP_NOW_ETH_ALEN]);
 static esp_err_t to_sender_queue(esp_now_data_t *);
 static int8_t find_neighbor_pos(float);
@@ -109,36 +113,35 @@ static void vcp_state_machine(void *pvParameters) {
     }
 }
 
-
 /*
  * -------------------------------------------------------------------------------------
  * This function handles a received message and updates the vcp state
  * -------------------------------------------------------------------------------------
 */
-static esp_err_t handle_vcp_message(esp_now_data_t msg){
+static esp_err_t handle_vcp_message(esp_now_data_t msg) {
     int8_t n;
     float recipient;
 
 
-    switch (msg.payload->msg_type) {
+    switch (msg.payload->type) {
     case VCP_HELLO:
         n = find_neighbor_addr(msg.mac_addr);
         if (n == -1) {
             // add new neighbor
-            neighbors[neighbors_len].position = ((float*)(msg.payload->args))[0];
-            neighbors[neighbors_len].successor = ((float*)(msg.payload->args))[1];
-            neighbors[neighbors_len].predecessor = ((float*)(msg.payload->args))[2];
+            neighbors[neighbors_len].position = ((float *)(msg.payload->args))[0];
+            neighbors[neighbors_len].successor = ((float *)(msg.payload->args))[1];
+            neighbors[neighbors_len].predecessor = ((float *)(msg.payload->args))[2];
             memcpy(neighbors[neighbors_len].mac_addr, msg.mac_addr, sizeof(msg.mac_addr));
         } else {
             // update existing neighbor
-            neighbors[n].position = ((float*)(msg.payload->args))[0];
-            neighbors[n].successor = ((float*)(msg.payload->args))[1];
-            neighbors[n].predecessor = ((float*)(msg.payload->args))[2];
+            neighbors[n].position = ((float *)(msg.payload->args))[0];
+            neighbors[n].successor = ((float *)(msg.payload->args))[1];
+            neighbors[n].predecessor = ((float *)(msg.payload->args))[2];
         }
         break;
     case VCP_UPDATE_SUCCESSOR:
         // update my successor and my cord position
-        own_position = ((float*)(msg.payload->args))[0];
+        own_position = ((float *)(msg.payload->args))[0];
         n = find_neighbor_addr(msg.mac_addr);
         if (n != -1) {
             i_successor = n;
@@ -157,7 +160,7 @@ static esp_err_t handle_vcp_message(esp_now_data_t msg){
         break;
     case VCP_UPDATE_PREDECESSOR:
         // update my predecessor and my cord position
-        own_position = ((float*)(msg.payload->args))[0];
+        own_position = ((float *)(msg.payload->args))[0];
         n = find_neighbor_addr(msg.mac_addr);
         if (n != -1) {
             i_predecessor = n;
@@ -179,18 +182,18 @@ static esp_err_t handle_vcp_message(esp_now_data_t msg){
         break;
     case VCP_DATA:
         // If message is for me, print, otherwise forward to successor
-        recipient = ((float*)msg.payload->args)[0];
+        recipient = ((float *)msg.payload->args)[0];
         if (recipient == own_position) {
-            printf("Received data: %s\n", (char*)(msg.payload->args + 1));
+            printf("Received data: %s\n", (char *)(msg.payload->args + 1));
         } else {
-            // TODO forward to successor / greedy routing
+            new_data_message(recipient, (char *)(msg.payload->args + 1));
         }
         break;
     case VCP_ERR:
         printf("Received error message\n");
         break;
     default:
-        printf("Received message of unknown type: %x\n", msg.payload->msg_type);
+        printf("Received message of unknown type: %x\n", msg.payload->type);
         break;
     }
     return ESP_OK;
@@ -268,17 +271,79 @@ static void join_virtual_cord() {
 
 }
 
-static esp_err_t create_message(vcp_message_data_t msg, uint8_t to[ESP_NOW_ETH_ALEN]){
+/* Creates a new hello message */
+static esp_err_t new_hello_message() {
+    vcp_message_data_t msg;
+    float args[3] = { own_position, VCP_INITIAL, VCP_INITIAL };
+
+    if (i_successor != -1) { args[1] = neighbors[i_successor].position; }
+    if (i_predecessor != -1) { args[2] = neighbors[i_predecessor].position; }
+    msg.type = VCP_HELLO;
+    msg.args = args;
+
+    return create_message(msg, broadcast_mac);
+}
+
+/* Creates a new update message */
+static esp_err_t new_update_message(uint8_t type, uint8_t to[ESP_NOW_ETH_ALEN], float new_position) {
+    vcp_message_data_t msg;
+    float args[1] = { new_position };
+
+    msg.type = type;
+    msg.args = args;
+
+    return create_message(msg, to);
+}
+
+/* Creates a new create virtual node message */
+static esp_err_t new_create_virtual_node_message(void) {
+    vcp_message_data_t msg;
+
+    msg.type = VCP_CREATE_VIRTUAL_NODE;
+    // empty message for now, because virtual nodes are not implemented yet
+    return create_message(msg, broadcast_mac);
+}
+
+/* Creates a new data message */
+static esp_err_t new_data_message(float to, char content[]) {
+    vcp_message_data_t msg;
+    int8_t n;
+
+    msg.type = VCP_DATA;
+
+    // ARGS: first 4 bytes are the float, the rest is the content (string)
+    msg.args = malloc(sizeof(float) + strlen(content));
+    if (msg.args == NULL) {
+        ESP_LOGE(TAGS.send_tag, "Could not allocate memory for data message");
+        return ESP_FAIL;
+    }
+    ((float *)msg.args)[0] = to;
+    strcpy((char *)(((float *)(msg.args)) + 1), content);       // pointer hell but should work :_)
+
+    // if recipient is my neighbour, send it directly to him, otherwise send msg to successor
+    int8_t n = find_neighbor_pos(to);
+    if (n != -1) {
+        return create_message(msg, neighbors[n].mac_addr);
+    }
+
+    return create_message(msg, neighbors[i_successor].mac_addr);
+
+}
+
+/*
+ * ------------------------------------------------------------------
+ * This function creates a message and pushes it on the sender_queue
+ * ------------------------------------------------------------------
+ */
+static esp_err_t create_message(vcp_message_data_t msg, uint8_t to[ESP_NOW_ETH_ALEN]) {
 
 
     return ESP_OK;
 }
 
-
 /*
  * ------------------------------------------------------------------
- * This function creates a hello message and pushes it on the
- * sender_queue
+ * This function pushes a message to the sender queue
  * ------------------------------------------------------------------
  */
 static esp_err_t to_sender_queue(esp_now_data_t *esp_now_data) {

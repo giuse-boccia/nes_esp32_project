@@ -67,8 +67,8 @@ typedef struct {
 } q_receive_data_t;
 
 typedef struct {
-    uint8_t msg_type;   // es: VCP_HELLO, VCP_DATA
-    void *args;         // args can be of any type and dimension, depending on msg_type
+    uint8_t type;   // es: VCP_HELLO, VCP_DATA
+    void *args;         // args can be of any type and dimension, depending on type
 } vcp_message_data_t;
 
 typedef struct {
