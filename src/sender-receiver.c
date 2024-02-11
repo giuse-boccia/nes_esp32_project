@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
+#include <stdint.h>
 #include "esp_random.h"
 #include "esp_event.h"
 #include "esp_netif.h"
