@@ -22,8 +22,8 @@ extern const error_tags_t TAGS;
 
 /* ----------------------------------------------- function definition ----------------------------------------------- */
 esp_err_t init_sender_receiver(void);
-esp_now_data_t parse_data(q_receive_data_t *received_message);
+esp_now_data_t parse_data(q_receive_data_t *);
 void deinit_sender_receiver(void);
-void print_esp_now_data_t(esp_now_data_t *data);
+void print_esp_now_data_t(esp_now_data_t *);
 
 #endif

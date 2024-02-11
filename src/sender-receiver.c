@@ -42,7 +42,6 @@ QueueHandle_t sender_error_queue;
 
 const uint8_t broadcast_mac[ESP_NOW_ETH_ALEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 const error_tags_t TAGS = {"espnow_receiver", "espnow_sender"};
-static uint16_t transmitter_sequence_numbers[2] = {0, 0};
 
 /* ----------------------------------------------- function definition ----------------------------------------------- */
 static void sender_error_callback(const uint8_t *mac_addr, esp_now_send_status_t status);
@@ -118,20 +117,22 @@ static void receiver_callback(const esp_now_recv_info_t *info, const uint8_t *da
  * the data is valid using CRC algorithm
  * ------------------------------------------------------------------
  */
-// esp_now_data_t parse_data(q_receive_data_t *received_message)
-// {
-//     //
-// }
+esp_now_data_t parse_data(q_receive_data_t *received_message)
+{
+    esp_now_data_t result;
+
+    // fill result with stuff
+
+    return result;
+}
 
 void print_esp_now_data_t(esp_now_data_t *data)
 {
     printf("\n-----------------------------------------------\n");
     printf("Transmit Type: %d\n", data->transmit_type);
     printf("Destination MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",
-           data->destination_mac[0], data->destination_mac[1], data->destination_mac[2],
-           data->destination_mac[3], data->destination_mac[4], data->destination_mac[5]);
-    printf("Sequence Number: %d\n", data->seq_num);
-    printf("CRC: %d\n", data->crc);
+           data->mac_addr[0], data->mac_addr[1], data->mac_addr[2],
+           data->mac_addr[3], data->mac_addr[4], data->mac_addr[5]);
     printf("Payload Length: %d\n", data->payload_length);
     // Print the payload as a string
     printf("Payload: ");
@@ -163,13 +164,10 @@ static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t
         return ESP_FAIL;
     }
 
-    esp_now_data->seq_num = transmitter_sequence_numbers[esp_now_data->transmit_type]++;
-    esp_now_data->crc = 1234;
-
     memset(esp_now_param->buffer, 0, esp_now_param->len);
     memcpy(esp_now_param->buffer, esp_now_data, esp_now_param->len);
 
-    // TODO --> do a propper CRC calculation with the dat
+    // TODO --> do a proper CRC calculation with the dat
 
     if (esp_now_data->transmit_type == TRANSMIT_TYPE_BROADCAST)
     {
@@ -177,7 +175,7 @@ static esp_err_t encode_data(esp_now_send_param_t *esp_now_param, esp_now_data_t
     }
     else if (esp_now_data->transmit_type == TRANSMIT_TYPE_UNICAST)
     {
-        memcpy(esp_now_param->destination_mac, esp_now_data->destination_mac, ESP_NOW_ETH_ALEN);
+        memcpy(esp_now_param->destination_mac, esp_now_data->mac_addr, ESP_NOW_ETH_ALEN);
     }
 
     return ESP_OK;
@@ -225,8 +223,8 @@ static void send_data_task(void *pvParameters)
 
     while (1)
     {
-        // User-specific dealy bevor sending the next message
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        // User-specific delay befor sending the next message
+        vTaskDelay(ESPNOW_SENDING_DELAY_MS / portTICK_PERIOD_MS);
 
         if (uxQueueMessagesWaiting(sender_queue) > 0)
         {

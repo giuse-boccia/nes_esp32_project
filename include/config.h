@@ -23,7 +23,7 @@
 #define SENDER_ERROR_QUEUE_SIZE 5
 #define ESP_NOW_MAX_PEERS 20
 
-#define ESPNOW_SENDING_DELAY_MS 1000
+#define ESPNOW_SENDING_DELAY_MS 100
 #define VCP_TASK_DELAY_MS 1000
 
 #define ESP_NOW_PMK "pmk1234567890123"
@@ -38,6 +38,17 @@
 #define VCP_CREATE_VIRTUAL_NODE 0x03
 #define VCP_DATA 0x04
 #define VCP_ERR 0x05
+
+
+/*
+ * MESSAGE TYPES
+ * - HELLO (0x00) + float + float + float  ----> 13 bytes
+ * - UPDATE_SUCCESSOR (0x01) + float       ----> 5 bytes
+ * - UPDATE_PREDECESSOR (0x02) + float     ----> 5 bytes
+ * - DATA (0x04) + char[]                  ----> ? bytes
+ * 
+
+*/
 
 /* VCP parameters */
 #define VCP_START 0.0
@@ -60,7 +71,6 @@ typedef struct {
     void *args;         // args can be of any type and dimension, depending on msg_type
 } vcp_message_data_t;
 
-
 typedef struct {
     uint8_t mac_addr[ESP_NOW_ETH_ALEN];
     esp_now_send_status_t status;
@@ -68,11 +78,9 @@ typedef struct {
 
 typedef struct {
     uint8_t transmit_type; // 0: unicast, 1: broadcast
-    uint8_t destination_mac[ESP_NOW_ETH_ALEN];
-    uint16_t seq_num;       // sequence number
-    uint16_t crc;           // crc16
+    uint8_t mac_addr[ESP_NOW_ETH_ALEN];         // addr of sender OR receiver (depending on which queue struct is in)
     uint8_t payload_length; // length of the data
-    uint8_t *payload;     // data
+    vcp_message_data_t *payload;     // data
 } esp_now_data_t;
 
 enum {

@@ -47,9 +47,7 @@ vcp_neighbor_data_t neighbors[ESP_NOW_MAX_PEERS];
 static void vcp_state_machine(void *pvParameters);
 static esp_err_t handle_vcp_message(q_receive_data_t received_data);
 static void join_virtual_cord(void);
-static esp_err_t new_hello_message(void);
-static esp_err_t new_update_message(uint8_t, uint8_t[ESP_NOW_ETH_ALEN], float);
-static esp_err_t new_create_virtual_node_message(void);
+static esp_err_t create_message(vcp_message_data_t msg, uint8_t to[ESP_NOW_ETH_ALEN]);
 static esp_err_t to_sender_queue(esp_now_data_t *esp_now_data);
 static int8_t find_neighbor_pos(float);
 static int8_t find_neighbor_addr(uint8_t[ESP_NOW_ETH_ALEN]);
@@ -81,12 +79,14 @@ static void vcp_state_machine(void *pvParameters) {
     * PHASE 3: Joined -------------> send hello msg, react to incoming msg
     */
     while (1) {
+
         vTaskDelay(VCP_TASK_DELAY_MS / portTICK_PERIOD_MS);
 
         if (own_position == VCP_INITIAL && idle_count > 0) {                // phase 1
             idle_count--;
         } else if (own_position == VCP_INITIAL && idle_count == 0) {        // phase 2
             join_virtual_cord();
+            printf("Trying to join virtual cord... %f\n", own_position);
         }
 
         if (own_position != VCP_INITIAL) {                                  // phase 3
@@ -95,10 +95,10 @@ static void vcp_state_machine(void *pvParameters) {
             }
         }
 
-        // FIXME why isn't this a while loop ?? should i "react" only to a message per second? Am i missing something?
-        if (uxQueueMessagesWaiting(receiver_queue) > 0) {
+        while (uxQueueMessagesWaiting(receiver_queue) > 0) {
             if (xQueueReceive(receiver_queue, &received_data, portMAX_DELAY) == pdTRUE) {
-                handle_vcp_message(received_data);
+                // handle_vcp_message(parse_data(&received_data));
+                handle_vcp_message(received_data);  // wrong
             }
         }
 
@@ -115,24 +115,34 @@ static void vcp_state_machine(void *pvParameters) {
  * -------------------------------------------------------------------------------------
  * This function handles a received message and updates the vcp state
  * -------------------------------------------------------------------------------------
- */
+*/
+// TODO take esp_now_data_t
 static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
     vcp_message_data_t msg_data;
     int8_t n;
-    float *msg_args;
+    float *float_args;
     msg_data.msg_type = received_data.data[0];  // first byte is the message type
-
+    msg_data.args = (void *)(received_data.data + 1);
 
     switch (msg_data.msg_type) {
     case VCP_HELLO:
-        // TODO update neighbor list with new node address and position
-        // is a new neighbor ?
-        // old neighbor but his successor/predecessor changed ?
+        float_args = (float*)(received_data.data + 1);
+        n = find_neighbor_addr(received_data.mac_addr);
+        if (n == -1) {
+            neighbors[neighbors_len].position = float_args[0];;
+            neighbors[neighbors_len].successor = float_args[1];
+            neighbors[neighbors_len].predecessor = float_args[2];
+            memcpy(neighbors[neighbors_len].mac_addr, received_data.mac_addr, sizeof(received_data.mac_addr));
+        } else {
+            neighbors[n].position = float_args[0];
+            neighbors[n].successor = float_args[1];
+            neighbors[n].predecessor = float_args[2];
+        }
         break;
     case VCP_UPDATE_SUCCESSOR:
         // update my successor and my cord position
-        msg_args = (float*)received_data.data + 1;
-        own_position = msg_args[0];
+        float_args = (float*)(received_data.data + 1);
+        own_position = float_args[0];
         n = find_neighbor_addr(received_data.mac_addr);
         if (n != -1) {
             i_successor = n;
@@ -151,8 +161,8 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
         break;
     case VCP_UPDATE_PREDECESSOR:
         // update my predecessor and my cord position
-        msg_args = (float*)(received_data.data + 1);
-        own_position = msg_args[0];
+        float_args = (float*)(received_data.data + 1);
+        own_position = float_args[0];
         n = find_neighbor_addr(received_data.mac_addr);
         if (n != -1) {
             i_predecessor = n;
@@ -173,7 +183,7 @@ static esp_err_t handle_vcp_message(q_receive_data_t received_data) {
         // TODO create virtual node, send update messages
         break;
     case VCP_DATA:
-        // TODO greedy routing if i'm not the receiver, otherwise print received msg
+        printf("Received data: %s\n", (char*)(received_data.data + 1));
         break;
     case VCP_ERR:
         // TODO print error
@@ -257,39 +267,12 @@ static void join_virtual_cord() {
 
 }
 
+static esp_err_t create_message(vcp_message_data_t msg, uint8_t to[ESP_NOW_ETH_ALEN]){
 
-static esp_err_t new_hello_message() {
-    uint8_t total_length = sizeof(esp_now_data_t) + sizeof(broadcast_mac);
-    /* Allocate memory on the heap */
-    esp_now_data_t *esp_now_data = (esp_now_data_t *)malloc(total_length);
 
-    if (esp_now_data == NULL) {
-        ESP_LOGE(TAGS.send_tag, "Could not allocate memory for hello message");
-        return ESP_FAIL;
-    }
-    /* Fill the esp_now_data_t struct with the data */
-    memset(esp_now_data, 0, total_length);
-    esp_now_data->transmit_type = TRANSMIT_TYPE_BROADCAST;
-    esp_now_data->payload_length = sizeof(broadcast_mac);
-    memcpy(esp_now_data->destination_mac, broadcast_mac, sizeof(broadcast_mac));
-    esp_now_data->payload_length = 1;   // message contains only 1 byte, no args
-    esp_now_data->payload = (uint8_t*)malloc(esp_now_data->payload_length);
-    esp_now_data->payload[0] = VCP_HELLO;
-    return to_sender_queue(esp_now_data);
-}
-
-static esp_err_t new_update_message(uint8_t type, uint8_t to[ESP_NOW_ETH_ALEN], float new_neighbor_position) {
-    // TODO send a message to receiver with arg new_neighbor_position
-    // should the msg include my own position?
-    //      YES -> so the receiver can save me as his new neighbor (but he doesn't know my succ and pred...)
-    //      NO -> this info will be included in my next hello msg (what if he misses it ??)
     return ESP_OK;
 }
 
-static esp_err_t new_create_virtual_node_message() {
-    // TODO maybe skip this part...
-    return ESP_OK;
-}
 
 /*
  * ------------------------------------------------------------------

@@ -7,6 +7,7 @@
         "sender-receiver.h": "c",
         "assert.h": "c",
         "esp_event.h": "c",
-        "esp_netif.h": "c"
+        "esp_netif.h": "c",
+        "time.h": "c"
     }
 }
