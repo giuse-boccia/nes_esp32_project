@@ -6,6 +6,6 @@
 .vscode/extensions.json
 
 **.DS_Store 
-**/CMakeLists.txt
+CMakeList.txt
 platformio.ini
 sdkconfig.*
