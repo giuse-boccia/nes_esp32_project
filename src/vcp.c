@@ -303,12 +303,6 @@ static void join_virtual_cord()
                 i_predecessor = j;
                 i_successor = i;
 
-                /*
-                 * IS THIS CORRECT??
-                 * When creating the new position for the currently joined node, the successor of the j-node   will be the own position of the currently joined node and for the i-node the predecessor will be the own position of the currently joined node. Why is the old position of j-position set to be the new successor and for i-node the same for the predecessor?
-                 *
-                 */
-
                 new_update_message(VCP_UPDATE_SUCCESSOR, neighbors[j].mac_addr, neighbors[j].position);
                 new_update_message(VCP_UPDATE_PREDECESSOR, neighbors[i].mac_addr, neighbors[i].position);
                 return;
