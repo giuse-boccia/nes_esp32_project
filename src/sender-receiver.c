@@ -136,7 +136,10 @@ esp_now_data_t parse_data(q_receive_data_t *received_message)
 
     add_peer(received_message->mac_addr, false);
 
-    // fill result with stuff
+    result.payload_length = received_message->data_len;
+    result.payload = malloc(result.payload_length);
+    memcpy(result.mac_addr, received_message->mac_addr, ESP_NOW_ETH_ALEN);
+    memcpy(result.payload, received_message->data, result.payload_length);
 
     return result;
 }
