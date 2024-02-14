@@ -26,6 +26,13 @@ typedef struct
     float predecessor;
 } vcp_neighbor_data_t;
 
+typedef struct
+{
+    float position;
+    int8_t i_successor;
+    int8_t i_predecessor;
+}vcp_vnode_data_t;
+
 /* ----------------------------------------------- function definition ----------------------------------------------- */
 void init_vcp(void);
 
