@@ -52,6 +52,7 @@
 #define VCP_VIRT_INTERVAL 0.9
 #define VCP_DISCOVERY_CYCLES 3 // number of "cycles" before joining the cord
 #define VCP_HELLO_MESSAGE_PERIOD (10 * VCP_TASK_DELAY_MS)
+#define VCP_MAX_VIRTUAL_NODES 1
 
 typedef struct
 {
